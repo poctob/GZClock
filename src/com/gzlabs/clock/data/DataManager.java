@@ -7,10 +7,13 @@ import java.util.Properties;
 
 import com.gzlabs.gzroster.data.DB_Object;
 import com.gzlabs.gzroster.data.Duty;
+import com.gzlabs.gzroster.data.Person;
+import com.gzlabs.gzroster.data.TimeOff;
 import com.gzlabs.gzroster.gui.IDisplayStatus;
 import com.gzlabs.gzroster.sql.DBManager;
 import com.gzlabs.gzroster.sql.DB_Factory;
 import com.gzlabs.gzroster.sql.DB_Factory.ObjectType;
+import com.gzlabs.utils.CryptoUtils;
 import com.gzlabs.utils.DateUtils;
 
 /**
@@ -86,6 +89,15 @@ public class DataManager {
 		return DB_Factory.getNames(db_persons);
 	}
 	
+	/**
+	 * Retrieves a list of Active employees stored in the database
+	 * @return List of employees
+	 */
+	public ArrayList<String> getActiveEmployees()
+	{		
+		return DB_Factory.getActiveNames(db_persons);
+	}
+	
 
 	/**
 	 * Updates employee in the database.
@@ -123,7 +135,7 @@ public class DataManager {
 	 * from the configuration, using an interval from the configuration.
 	 * @return List of time spans.
 	 */
-	public ArrayList<String> getTimeSpan()
+	public ArrayList<Object> getTimeSpan()
 	{
 		return DateUtils.getTimeSpan
 				(prop.getProperty("day_start"), prop.getProperty("day_end"), prop.getProperty("interval_minutes"));		
@@ -216,9 +228,9 @@ public class DataManager {
 		return retval;
 	}
 	
-	public boolean insertClockEvent(String name, boolean isClockIn)
+	public boolean insertClockEvent(String name, boolean isClockIn, String reason)
 	{
-		if(DB_Factory.insertClockEvent(dbman, name, isClockIn))
+		if(DB_Factory.insertClockEvent(dbman, name, isClockIn, reason))
 		{
 			safeDisplayStatus("Clock event registered.");
 			return true;
@@ -246,6 +258,71 @@ public class DataManager {
 		double minutes=DB_Factory.getWeekWorkeddHours(dbman, name);
 		return minutes/60;
 	}
+	
+	public boolean requestTimeOff(String name, String start, String end)
+	{
+		boolean retval=DB_Factory.requestTimeOff(dbman, name, start, end, "Pending");
+		updateDBObjects();
+		return retval;
+	}
+	
+	/**
+ 	 * Fetches all time off requests for a specified employee.
+ 	 * @param string Employee name.
+ 	 * @return List of time off requests.
+ 	 */
+	public ArrayList<TimeOff> getTimeOffs(String string) {
+		DB_Object person=DB_Factory.getObjectByName(db_persons, string);
+		
+		return person!=null?((Person)person).getTimeOffs():null;
+	}
 
+	public boolean pinCorrect(String login, String text2) {
+		ArrayList<String> data=DB_Factory.getPin(dbman,login);
+		if(data.size()==2)
+		{
+			return CryptoUtils.checkPassSHA512(text2, data.get(1), data.get(0));
+		}
+		return false;
+	}
+
+	public void updateEmployeeData(String nameLabel, String address,
+			String homephone, String cellphone, String email, String pin) {
+		setPin(pin, nameLabel);
+		DB_Factory.updatePerson(dbman, nameLabel, address, homephone, cellphone, email);
+		updateDBObjects();
+		
+	}
+	
+	public void setPin(String pin, String name) {
+		String salt=CryptoUtils.generateRandomSalt(120, 32);
+		String hash=CryptoUtils.hashPasswordSHA512(pin, salt);
+		DB_Factory.setPin(dbman, hash, salt, name);
+		
+	}
+
+	public String getAddress(String login) {
+		DB_Object person=DB_Factory.getObjectByName(db_persons, login);
+		return ((Person)person).getM_address();
+	}
+	
+	public String getHPhone(String login) {
+		DB_Object person=DB_Factory.getObjectByName(db_persons, login);
+		return ((Person)person).getM_home_phone();
+	}
+	
+	public String getCPhone(String login) {
+		DB_Object person=DB_Factory.getObjectByName(db_persons, login);
+		return ((Person)person).getM_mobile_phone();
+	}
+	
+	public String getEmail(String login) {
+		DB_Object person=DB_Factory.getObjectByName(db_persons, login);
+		return ((Person)person).getM_email();
+	}
+	public ArrayList<String> getClockOutReasons()
+	{
+		return DB_Factory.getClockOutReasons(dbman);
+	}
 	
 }

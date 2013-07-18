@@ -1,4 +1,4 @@
-package com.gzlabs.clock;
+package com.gzlabs.clock.gui;
 
 import java.util.ArrayList;
 
@@ -12,6 +12,7 @@ import org.eclipse.wb.swt.SWTResourceManager;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
 
+import com.gzlabs.clock.ILoginManager;
 import com.gzlabs.utils.WidgetUtilities;
 /**
  * Provides keypad for entering the pin.
@@ -30,9 +31,11 @@ public class LoginWidget extends Composite {
 	 */
 	public LoginWidget(Composite parent, int style, ILoginManager lm) {
 		super(parent, style);
+		setBackground(SWTResourceManager.getColor(153, 204, 153));
 		this.ilm=lm;
 		
 		Label lblYourName = new Label(this, SWT.NONE);
+		lblYourName.setBackground(SWTResourceManager.getColor(153, 204, 153));
 		lblYourName.setBounds(10, 22, 77, 18);
 		lblYourName.setText("Your Name:");
 		
@@ -40,6 +43,7 @@ public class LoginWidget extends Composite {
 		comboNames.setBounds(93, 10, 204, 30);
 		
 		Label lblYourPin = new Label(this, SWT.NONE);
+		lblYourPin.setBackground(SWTResourceManager.getColor(153, 204, 153));
 		lblYourPin.setBounds(10, 66, 69, 18);
 		lblYourPin.setText("Your Pin:");
 		

@@ -22,6 +22,13 @@ public interface ILoginManager {
 	 */
 	ArrayList<String> getNames();
 	
-	void processClockEvent(String name, boolean isClockIn);
+	/**
+	 * Processes clock in/out event
+	 * @param name Employee's name
+	 * @param isClockIn If this is the clock in event
+	 */
+	void processClockEvent(String name, boolean isClockIn, String reason);
+
+	ArrayList<String> getClockOutReaons();
 
 }

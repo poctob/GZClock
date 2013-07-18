@@ -1,4 +1,4 @@
-package com.gzlabs.clock;
+package com.gzlabs.clock.gui;
 
 import org.eclipse.swt.widgets.Composite;
 import org.eclipse.swt.widgets.Label;
@@ -23,14 +23,17 @@ public class RealTimeClockWidget extends Composite {
 	 */
 	public RealTimeClockWidget(Composite parent, int style) {
 		super(parent, style);
+		setBackground(SWTResourceManager.getColor(153, 204, 153));
 		
 		labelDate = new Label(this, SWT.NONE);
+		labelDate.setBackground(SWTResourceManager.getColor(153, 204, 153));
 		labelDate.setAlignment(SWT.CENTER);
 		labelDate.setFont(SWTResourceManager.getFont("Arial", 16, SWT.NORMAL));
 		labelDate.setBounds(10, 10, 166, 28);
 		labelDate.setText("");
 		
 		labelTime = new Label(this, SWT.NONE);
+		labelTime.setBackground(SWTResourceManager.getColor(153, 204, 153));
 		labelTime.setFont(SWTResourceManager.getFont("Arial", 16, SWT.NORMAL));
 		labelTime.setAlignment(SWT.CENTER);
 		labelTime.setBounds(10, 44, 166, 28);

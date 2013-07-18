@@ -10,11 +10,15 @@ import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
 import org.eclipse.swt.widgets.Shell;
+import org.eclipse.wb.swt.SWTResourceManager;
 
-import com.gzlabs.clock.ActionWidget;
+import com.gzlabs.clock.IEmployeeDataManager;
 import com.gzlabs.clock.ILoginManager;
-import com.gzlabs.clock.LoginWidget;
-import com.gzlabs.clock.RealTimeClockWidget;
+import com.gzlabs.clock.ITimeOffManager;
+import com.gzlabs.clock.gui.ActionWidget;
+import com.gzlabs.clock.gui.LoginWidget;
+import com.gzlabs.clock.gui.RealTimeClockWidget;
+import com.gzlabs.gzroster.data.TimeOff;
 import com.gzlabs.gzroster.gui.IDisplayStatus;
 
 /**
@@ -22,7 +26,7 @@ import com.gzlabs.gzroster.gui.IDisplayStatus;
  * @author apavlune
  *
  */
-public class ClockManager implements IDisplayStatus, ILoginManager
+public class ClockManager implements IDisplayStatus, ILoginManager, ITimeOffManager, IEmployeeDataManager
 {
 
 	private Label statusLabel;
@@ -44,10 +48,12 @@ public class ClockManager implements IDisplayStatus, ILoginManager
 		shell=new Shell(display);
 		shell.setSize(525, 510);
 		shell.setText("GZ Clock");
+		shell.setBackground(SWTResourceManager.getColor(153, 204, 153));
 		
 		statusLabel = new Label(shell, SWT.NONE);
 		statusLabel.setBounds(10, 452, 504, 18);
-		statusLabel.setText("Not connected to the database ...");		
+		statusLabel.setText("Not connected to the database ...");	
+		statusLabel.setBackground(SWTResourceManager.getColor(153, 204, 153));
 		
 		dman=new DataManager(this);
 		rtclock = new RealTimeClockWidget(shell, SWT.NONE);
@@ -100,9 +106,16 @@ public class ClockManager implements IDisplayStatus, ILoginManager
 	public void processLogIn(String login, String text2) {
 		if(login!=null && login.length()>0)
 		{
+			if(!dman.pinCorrect(login, text2))
+			{
+				MessageDialog.openError(shell, "Login Error", "Incorrect Pin!");
+				loginWidget.clearSelections();
+				return;
+			}
+			
 			loginWidget.setVisible(false);
 			loginWidget.clearSelections();
-			actionWidget.setNameLabel(login);
+			actionWidget.setNameLabel(login, this);
 			actionWidget.setVisible(true);
 			actionWidget.populateTodaysSchedule(dman.getTodayShifts(login));
 			actionWidget.setActionButton(dman.isClockedIn(login));
@@ -110,6 +123,9 @@ public class ClockManager implements IDisplayStatus, ILoginManager
 			actionWidget.setScheduledHours(String.format("%.2f", scheduled));
 			double worked=dman.getWeeklyWorkedHours(login);
 			actionWidget.setWorkedHours(String.format("%.2f", worked));
+			
+			actionWidget.initEmployeeDataDialog
+			(text2, this, dman.getAddress(login), dman.getHPhone(login), dman.getCPhone(login), dman.getEmail(login));
 		}
 		
 	}
@@ -119,7 +135,7 @@ public class ClockManager implements IDisplayStatus, ILoginManager
 		ArrayList<String> retval=null;
 		if(dman!=null)
 		{
-			retval=dman.getEmployees();
+			retval=dman.getActiveEmployees();
 		}
 		return retval;
 	}
@@ -136,11 +152,11 @@ public class ClockManager implements IDisplayStatus, ILoginManager
 	}
 
 	@Override
-	public void processClockEvent(String name, boolean isClockIn) {
+	public void processClockEvent(String name, boolean isClockIn, String reason) {
 		boolean retval=false;
 		if(dman!=null)
 		{
-			retval=dman.insertClockEvent(name, isClockIn);
+			retval=dman.insertClockEvent(name, isClockIn, reason);
 			double worked=dman.getWeeklyWorkedHours(name);
 			actionWidget.setWorkedHours(String.format("%.2f", worked));
 		}
@@ -149,6 +165,49 @@ public class ClockManager implements IDisplayStatus, ILoginManager
 		{
 			actionWidget.toggleActionButton();
 		}
+	}
+
+	@Override
+	public ArrayList<Object> getTimeSpans() {
+		if(dman!=null)
+		{
+			return dman.getTimeSpan();
+		}
+		return null;
+	}
+
+	@Override
+	public void addTimeOffRequest(String start, String end, String name) {
+		if(dman!=null)
+		{
+			dman.requestTimeOff(name, start, end);
+		}
+		
+	}
+
+	@Override
+	public ArrayList<TimeOff> getTimeOffs(String m_name) {
+		if(dman!=null)
+		{
+			return dman.getTimeOffs(m_name);
+		}
+		return null;
+	}
+
+	@Override
+	public void updateEmployeeData(String address, String homephone,
+			String cellphone, String email, String pin) {
+		dman.updateEmployeeData(actionWidget.getNameLabel(),
+				address,
+				homephone,
+				cellphone,
+				email,
+				pin);
+	}
+
+	@Override
+	public ArrayList<String> getClockOutReaons() {
+		return dman.getClockOutReasons();
 	}
 	
 }
