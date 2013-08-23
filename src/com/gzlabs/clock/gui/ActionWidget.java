@@ -54,7 +54,7 @@ public class ActionWidget extends Composite {
 
 				if(event_text.equals("Clock Out"))
 				{
-					clockDialog.open();
+					clockDialog.open();					
 					if(clockDialog.getSelectedReason()!=null)
 					{
 						lman.processClockEvent(name, false, clockDialog.getSelectedReason());

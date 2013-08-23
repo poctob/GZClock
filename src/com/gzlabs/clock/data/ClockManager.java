@@ -6,6 +6,7 @@ import org.eclipse.jface.dialogs.MessageDialog;
 import org.eclipse.swt.SWT;
 import org.eclipse.swt.events.SelectionAdapter;
 import org.eclipse.swt.events.SelectionEvent;
+import org.eclipse.swt.graphics.Cursor;
 import org.eclipse.swt.widgets.Button;
 import org.eclipse.swt.widgets.Display;
 import org.eclipse.swt.widgets.Label;
@@ -18,15 +19,22 @@ import com.gzlabs.clock.ITimeOffManager;
 import com.gzlabs.clock.gui.ActionWidget;
 import com.gzlabs.clock.gui.LoginWidget;
 import com.gzlabs.clock.gui.RealTimeClockWidget;
+import com.gzlabs.clock.gui.SupervisorApprovalDialog;
 import com.gzlabs.gzroster.data.TimeOff;
+import com.gzlabs.gzroster.gui.IConnectionStatus;
 import com.gzlabs.gzroster.gui.IDisplayStatus;
+import com.gzlabs.gzroster.gui.SplashShell;
+import com.gzlabs.gzroster.sql.DBObjectType;
+import com.gzlabs.gzroster.data.DataManager;
+import com.gzlabs.gzroster.data.Person;
+import com.gzlabs.gzroster.data.UploadManager;
 
 /**
  * Provides various management utiliies for the widgets
  * @author apavlune
  *
  */
-public class ClockManager implements IDisplayStatus, ILoginManager, ITimeOffManager, IEmployeeDataManager
+public class ClockManager implements IDisplayStatus, ILoginManager, ITimeOffManager, IEmployeeDataManager, IConnectionStatus
 {
 
 	private Label statusLabel;
@@ -37,6 +45,9 @@ public class ClockManager implements IDisplayStatus, ILoginManager, ITimeOffMana
 	private Shell shell;
 	private Display display;
 	
+	private volatile boolean isInitialized;
+	private volatile boolean isError;
+	
 	
 	/**
 	 * Default constructor, initializes member variables
@@ -44,6 +55,50 @@ public class ClockManager implements IDisplayStatus, ILoginManager, ITimeOffMana
 	 */
 	public ClockManager() {
 		
+		Display display = Display.getDefault();
+		isInitialized=false;	
+		isError=false;
+		
+		dman = new DataManager(this, this, "GZClock.config");
+		Thread worker=new Thread(dman);
+		worker.setName("DataManager");
+		worker.start();
+		
+		SplashShell splash=new SplashShell(display);
+		splash.open();
+		splash.layout();
+		while (!isInitialized) {
+			if (!display.readAndDispatch()) {
+
+				try {
+					Thread.sleep(500);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				
+			}
+		}
+		
+		if(isError)
+		{
+			splash.activateError();
+			while (!splash.isDisposed()) {
+				if (!display.readAndDispatch()) {
+					display.sleep();
+				}
+			}
+		}
+		else
+		{
+			splash.close();		
+			init_shell();
+		}
+		
+		
+	}
+	
+	private void init_shell()
+	{
 		display = Display.getDefault();
 		shell=new Shell(display);
 		shell.setSize(525, 510);
@@ -52,13 +107,10 @@ public class ClockManager implements IDisplayStatus, ILoginManager, ITimeOffMana
 		
 		statusLabel = new Label(shell, SWT.NONE);
 		statusLabel.setBounds(10, 452, 504, 18);
-		statusLabel.setText("Not connected to the database ...");	
 		statusLabel.setBackground(SWTResourceManager.getColor(153, 204, 153));
 		
-		dman=new DataManager(this);
 		rtclock = new RealTimeClockWidget(shell, SWT.NONE);
-		rtclock.setBounds(370, 0, 150, 70);
-		
+		rtclock.setBounds(370, 0, 150, 70);		
 		
 		loginWidget = new LoginWidget(shell, SWT.NONE, this);
 		loginWidget.setBounds(10, 0, 308, 441);
@@ -84,7 +136,6 @@ public class ClockManager implements IDisplayStatus, ILoginManager, ITimeOffMana
 		});
 		btnExit.setBounds(412, 410, 88, 30);
 		btnExit.setText("Exit");
-		
 	}
 
 	@Override
@@ -124,8 +175,16 @@ public class ClockManager implements IDisplayStatus, ILoginManager, ITimeOffMana
 			double worked=dman.getWeeklyWorkedHours(login);
 			actionWidget.setWorkedHours(String.format("%.2f", worked));
 			
+			Person employee=(Person)dman.getObjectByName(login, DBObjectType.PERSON);
+			
 			actionWidget.initEmployeeDataDialog
-			(text2, this, dman.getAddress(login), dman.getHPhone(login), dman.getCPhone(login), dman.getEmail(login));
+			(text2, 
+					this, 
+					employee.getM_address(), 
+					employee.getM_home_phone(), 
+					employee.getM_mobile_phone(), 
+					employee.getM_email()
+			);
 		}
 		
 	}
@@ -156,7 +215,18 @@ public class ClockManager implements IDisplayStatus, ILoginManager, ITimeOffMana
 		boolean retval=false;
 		if(dman!=null)
 		{
-			retval=dman.insertClockEvent(name, isClockIn, reason);
+			String approver=null;
+			if(isClockIn && dman.checkFiveMinuteRule(name))
+			{
+				SupervisorApprovalDialog approvalDialog=new SupervisorApprovalDialog(new Shell(), dman.getSupervisors());
+				approvalDialog.open();
+				approver=approvalDialog.getApprover();
+				if(approver==null || approver.length()==0)
+				{
+					return;
+				}
+			}
+			retval=dman.insertClockEvent(name, isClockIn, reason, approver);
 			double worked=dman.getWeeklyWorkedHours(name);
 			actionWidget.setWorkedHours(String.format("%.2f", worked));
 		}
@@ -208,6 +278,18 @@ public class ClockManager implements IDisplayStatus, ILoginManager, ITimeOffMana
 	@Override
 	public ArrayList<String> getClockOutReaons() {
 		return dman.getClockOutReasons();
+	}
+
+	@Override
+	public void setError() {
+		isError=true;
+		
+	}
+
+	@Override
+	public void setInitialized() {
+		isInitialized=true;
+		
 	}
 	
 }
